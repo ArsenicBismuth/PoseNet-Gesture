@@ -18,7 +18,8 @@ import * as posenet from '@tensorflow-models/posenet';
 import dat from 'dat.gui';
 import Stats from 'stats.js';
 
-import {drawBoundingBox, drawKeypoints, drawSkeleton, isMobile, toggleLoadingUI, tryResNetButtonName, tryResNetButtonText, updateTryResNetButtonDatGuiCss} from './demo_util';
+import {drawBoundingBox, drawPoint, drawKeypoints, drawSkeleton, isMobile, toggleLoadingUI, tryResNetButtonName, 
+  tryResNetButtonText, updateTryResNetButtonDatGuiCss, preprocPose, matchPoses} from './demo_util';
 
 const videoWidth = 600;
 const videoHeight = 500;
@@ -396,7 +397,10 @@ function detectPoseInRealTime(video, net) {
         minPoseConfidence = +guiState.singlePoseDetection.minPoseConfidence;
         minPartConfidence = +guiState.singlePoseDetection.minPartConfidence;
         // filter out poses (previously, it was only hidden)
-        if (pose.score >= minPoseConfidence) poses = poses.concat(a_pose);
+        if (pose.score >= minPoseConfidence) {
+          preprocPose(pose, minPartConfidence, remove = [11, 12, 13, 14, 15, 16]);
+          poses.push(pose);
+        }
         // poses = poses.concat(pose);
         break;
       case 'multi-pose':
@@ -410,9 +414,12 @@ function detectPoseInRealTime(video, net) {
 
         minPoseConfidence = +guiState.multiPoseDetection.minPoseConfidence;
         minPartConfidence = +guiState.multiPoseDetection.minPartConfidence;
-        all_poses.forEach(a_pose => {
+        all_poses.forEach(pose => {
           // filter out poses (previously, it was only hidden)
-          if (a_pose.score >= minPoseConfidence) poses = poses.concat(a_pose);
+          if (pose.score >= minPoseConfidence) {
+            preprocPose(pose, minPartConfidence, [11, 12, 13, 14, 15, 16]);
+            poses.push(pose);
+          }
         });
         // poses = poses.concat(all_poses);
         break;
@@ -431,7 +438,7 @@ function detectPoseInRealTime(video, net) {
     // For each pose (i.e. person) detected in an image, loop through the poses
     // and draw the resulting skeleton and keypoints if over certain confidence
     // scores
-    poses.forEach(({score, keypoints}) => {
+    poses.forEach(({center, score, keypoints}) => {
       if (guiState.output.showPoints) {
         drawKeypoints(keypoints, minPartConfidence, ctx);
       }
@@ -441,9 +448,26 @@ function detectPoseInRealTime(video, net) {
       if (guiState.output.showBoundingBox) {
         drawBoundingBox(keypoints, ctx);
       }
+      drawPoint(ctx, center.y, center.x, 3, 'yellow');
     });
     
+    // Match
+    matchPoses(gestures, poses);
+    
     console.log(poses);
+    /* General flow:
+      1. Poses
+      2. Remove low confs poses
+      3. Remove lower-body keypoints (conf=0)
+      4. Zero low confs keypoints (0,0)
+      5. Determine center (median), add to attribute
+      6. Distance to each of prev gestures' center
+      7. Check nearest (each pose vs gestures)
+      8. compare to threshold
+      9. Append if fulfill, create new if not (ID = random)
+      10. FIFO, remove head if overflow
+      11 Final: Multiple gestures from different IDs
+    */
 
     // End monitoring code for frames per second
     stats.end();

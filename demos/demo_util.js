@@ -229,3 +229,99 @@ export function drawOffsetVectors(
         [heatmapY, heatmapX], [offsetPointY, offsetPointX], color, scale, ctx);
   }
 }
+
+
+//// Data processing
+
+const distTh = 100; // Minimum gesture distance
+const gestN = 5;    // Max poses in a gesture
+
+/**
+ * Tracking - Match poses into respective gestures.
+ * 1 gesture can only pair with 1 pose max. Two methods: complete and shallow.
+ * - Complete : check every combinations, filter by threshold, sort thru the list, get nearest P-G, remove pairs with claimed components (P or G), repeat.
+ * - Shallow  : for a G find nearest P, filter by threshold, remove claimed P from candidacy, repeat.
+ */
+export function matchPoses(gestures, poses) {
+}
+
+/**
+ * Process the pose directly after being inferred
+ */
+export function preprocPose(pose, minConfidence, remove = []) {
+  // Modify object, not copy. Must not do any reassigment (pose = new object).
+  removeKeypoints(pose, remove);
+  zeroKeypoints(pose, minConfidence);
+  centerPose(pose);
+}
+
+/**
+ * Remove unused keypoints by setting them to 0
+ */
+function removeKeypoints(pose, remove = []) {
+  remove.forEach(i => {
+    pose.keypoints[i].score = 0;
+  });
+}
+
+/**
+ * Zero low-confidence keypoints by setting them to (0,0)
+ */
+function zeroKeypoints(pose, minConfidence) {
+  pose.keypoints.forEach(({score, position}) => {
+    if (score < minConfidence) {
+      position.x = 0;
+      position.y = 0;
+    }
+  });
+}
+
+/**
+ * Find single-point representation of a pose - Between shoulders
+ */
+function centerPose(pose) {
+  let center = {x:0, y:0};
+  let points = [pose.keypoints[5], pose.keypoints[6]]; // Left & right shoulders
+    
+  if (points[0].score > 0 && points[1].score > 0) {
+    center.x = points[0].position.x + (points[1].position.x - points[0].position.x)/2;
+    center.y = points[0].position.y + (points[1].position.y - points[0].position.y)/2;
+  } else {
+    // Through median
+    center = medianPose(pose);
+  }
+  
+  pose.center = center;
+}
+
+/**
+ * Find single-point representation of a pose - Median
+ */
+function medianPose(pose) {
+  let center = {x:0, y:0};
+  let x = [];
+  let y = [];
+  
+  pose.keypoints.forEach(({score, position}) => {
+    if (score > 0) {
+      x.push(position.x);
+      y.push(position.y);
+    }
+  });
+  
+  // Ascending sort
+  x.sort((a, b) => {return a - b});
+  y.sort((a, b) => {return a - b});
+  
+  // Median
+  const i = x.length;
+  if (i % 2 == 0) {
+    center.x = (x[i/2] + x[(i+2)/2])/2;
+    center.y = (y[i/2] + y[(i+2)/2])/2;
+  } else {
+    center.x = x[(i+1)/2];
+    center.y = y[(i+1)/2];
+  }
+  
+  return center;
+}
