@@ -434,27 +434,42 @@ function detectPoseInRealTime(video, net) {
       ctx.drawImage(video, 0, 0, videoWidth, videoHeight);
       ctx.restore();
     }
-
-    // For each pose (i.e. person) detected in an image, loop through the poses
-    // and draw the resulting skeleton and keypoints if over certain confidence
-    // scores
-    poses.forEach(({center, score, keypoints}) => {
-      if (guiState.output.showPoints) {
-        drawKeypoints(keypoints, minPartConfidence, ctx);
-      }
-      if (guiState.output.showSkeleton) {
-        drawSkeleton(keypoints, minPartConfidence, ctx);
-      }
-      if (guiState.output.showBoundingBox) {
-        drawBoundingBox(keypoints, ctx);
-      }
-      drawPoint(ctx, center.y, center.x, 3, 'yellow');
-    });
     
     // Match
+    // console.time("Matching");
     matchPoses(gestures, poses);
+    // console.timeEnd("Matching");
+    // console.log(gestures);
+
+    // Loop through the poses and draw the resulting skeleton and keypoints
+    // poses.forEach(({center, score, keypoints}) => {
+      // if (guiState.output.showPoints) {
+        // drawKeypoints(keypoints, minPartConfidence, ctx);
+      // }
+      // if (guiState.output.showSkeleton) {
+        // drawSkeleton(keypoints, minPartConfidence, ctx);
+      // }
+      // if (guiState.output.showBoundingBox) {
+        // drawBoundingBox(keypoints, ctx);
+      // }
+      // drawPoint(ctx, center.y, center.x, 3, 'yellow');
+    // });
     
-    console.log(poses);
+    // Loop through gestures, and draw the latest pose (head)
+    gestures.forEach(g => {
+      let p = g.a[0];
+      if (guiState.output.showPoints) {
+        drawKeypoints(p.keypoints, minPartConfidence, ctx, g.color);
+      }
+      if (guiState.output.showSkeleton) {
+        drawSkeleton(p.keypoints, minPartConfidence, ctx, g.color);
+      }
+      if (guiState.output.showBoundingBox) {
+        drawBoundingBox(p.keypoints, ctx);
+      }
+      drawPoint(ctx, p.center.y, p.center.x, 3, 'yellow');
+    });
+    
     /* General flow:
       1. Poses
       2. Remove low confs poses

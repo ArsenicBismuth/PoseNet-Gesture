@@ -1,4 +1,5 @@
 
+
 ## Forked from here: https://github.com/tensorflow/tfjs-models
 
 ## Quick start:
@@ -7,6 +8,11 @@
 2. `cd demos`
 3. `yarn`
 4. `yarn watch`
+5. Main files: `gesture.js` and `demo_utils.js`
+6. Important variables:
+	- `pose`= Single-person inference result, contains keypoints.
+	- `poses`= Multi-person inference result, contains array of `pose`.
+	- `gestures`= Final preprocessing result, contains poses from multiple frames, tracked.
 
 # Pose Detection in the Browser: PoseNet Model
 

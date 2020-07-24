@@ -97,7 +97,7 @@ export function drawSegment([ay, ax], [by, bx], color, scale, ctx) {
 /**
  * Draws a pose skeleton by looking up all adjacent keypoints/joints
  */
-export function drawSkeleton(keypoints, minConfidence, ctx, scale = 1) {
+export function drawSkeleton(keypoints, minConfidence, ctx, color = color, scale = 1) {
   const adjacentKeyPoints =
       posenet.getAdjacentKeyPoints(keypoints, minConfidence);
 
@@ -111,7 +111,7 @@ export function drawSkeleton(keypoints, minConfidence, ctx, scale = 1) {
 /**
  * Draw pose keypoints onto a canvas
  */
-export function drawKeypoints(keypoints, minConfidence, ctx, scale = 1) {
+export function drawKeypoints(keypoints, minConfidence, ctx, color = color, scale = 1) {
   for (let i = 0; i < keypoints.length; i++) {
     const keypoint = keypoints[i];
 
@@ -235,6 +235,29 @@ export function drawOffsetVectors(
 
 const distTh = 100; // Minimum gesture distance
 const gestN = 5;    // Max poses in a gesture
+const nullPose = {
+  "score":0, 
+  "center":{"x":0,"y":0},
+  "keypoints":[
+    {"score":0,"part":"nose","position":{"x":0,"y":0}},
+    {"score":0,"part":"leftEye","position":{"x":0,"y":0}},
+    {"score":0,"part":"rightEye","position":{"x":0,"y":0}},
+    {"score":0,"part":"leftEar","position":{"x":0,"y":0}},
+    {"score":0,"part":"rightEar","position":{"x":0,"y":0}},
+    {"score":0,"part":"leftShoulder","position":{"x":0,"y":0}},
+    {"score":0,"part":"rightShoulder","position":{"x":0,"y":0}},
+    {"score":0,"part":"leftElbow","position":{"x":0,"y":0}},
+    {"score":0,"part":"rightElbow","position":{"x":0,"y":0}},
+    {"score":0,"part":"leftWrist","position":{"x":0,"y":0}},
+    {"score":0,"part":"rightWrist","position":{"x":0,"y":0}},
+    {"score":0,"part":"leftHip","position":{"x":0,"y":0}},
+    {"score":0,"part":"rightHip","position":{"x":0,"y":0}},
+    {"score":0,"part":"leftKnee","position":{"x":0,"y":0}},
+    {"score":0,"part":"rightKnee","position":{"x":0,"y":0}},
+    {"score":0,"part":"leftAnkle","position":{"x":0,"y":0}},
+    {"score":0,"part":"rightAnkle","position":{"x":0,"y":0}}
+  ]
+}
 
 /**
  * Tracking - Match poses into respective gestures.
@@ -243,6 +266,81 @@ const gestN = 5;    // Max poses in a gesture
  * - Shallow  : for a G find nearest P, filter by threshold, remove claimed P from candidacy, repeat.
  */
 export function matchPoses(gestures, poses) {
+  // Store pairing results
+  let dists = [];
+  // To track of which is claimed
+  let done = { g:[], p:[] };
+  let p = 0;
+  
+  // Calculate distance between every pose (p) and gest (g)
+  poses.forEach(pose => {
+    let g = 0;
+    
+    gestures.forEach(gest => {
+      // Reference: latest value (head)
+      const prev = gest.a[0];
+      
+      // Matching pose - Distance
+      const x = pose.center.x - prev.center.x;
+      const y = pose.center.y - prev.center.y;
+      const dist = Math.sqrt(x*x + y*y);
+      
+      // Minimum distance
+      if (dist < distTh) dists.push([dist, g, p]);
+      g++;
+    });
+    
+    p++;
+  });
+  
+  // Pair pose and gesture based on result, start from closest pair
+  dists.sort((a, b) => {
+    return a[0] - b[0];
+  });
+  
+  console.log(dists);
+  
+  dists.forEach(d => {
+    // Skip through matched components (eq to continue)
+    if (done.g.includes(d[1])) return;
+    if (done.p.includes(d[2])) return;
+    
+    // Pair found, add to head
+    gestures[d[1]].a.unshift(poses[d[2]]);
+    gestures[d[1]].a.pop();  // Remove last element
+    done.g.push(d[1]);
+    done.p.push(d[2]);
+  });
+  
+  // No pair found
+  // Gesture delete
+  for (let i=0; i<gestures.length; i++) {
+    if (!done.g.includes(i)) gestures.splice(i,1);
+  }
+  
+  // Pose create new gesture
+  for (let i=0; i<poses.length; i++) {
+    if (!done.p.includes(i)) {
+      // Latest data is head, so add fillers to tail
+      let a = [poses[i]];
+      for (let n=0; n<gestN-1; n++) a.push(nullPose);
+      
+      gestures.push({
+        color: getColor(Math.random()),
+        a: a  // Array of poses
+      });
+      
+    }
+  }
+  
+}
+
+/**
+ * Select random color using golden angle & hsl, to distinguish different poses.
+ */
+function getColor(rand) {
+  const hue = rand * 137.508; // use golden angle approximation
+  return `hsl(${hue},100%,50%)`;
 }
 
 /**
