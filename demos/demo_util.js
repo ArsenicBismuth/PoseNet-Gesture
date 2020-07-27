@@ -298,7 +298,7 @@ export function matchPoses(gestures, poses) {
     return a[0] - b[0];
   });
   
-  console.log(dists);
+  // console.log(dists);
   
   dists.forEach(d => {
     // Skip through matched components (eq to continue)
@@ -351,6 +351,80 @@ export function preprocPose(pose, minConfidence, remove = []) {
   removeKeypoints(pose, remove);
   zeroKeypoints(pose, minConfidence);
   centerPose(pose);
+  headPose(pose);
+}
+
+/**
+ * Estimate head yaw based on 3 face points. Using statistical method.
+ * The result is stored as "rot" property inside each pose, in degree.
+ */
+function headPose(pose) {
+  let rot, ratio, dir;
+  
+  // Linear regerssion multiplier, increase for less-pointy nose. Def: 0.82
+  const coef = 0.82;
+  
+  const nose = {sc:pose.keypoints[0].score, pos:pose.keypoints[0].position};
+  const left = {sc:pose.keypoints[1].score, pos:pose.keypoints[1].position}; // Left eye
+  const right = {sc:pose.keypoints[2].score, pos:pose.keypoints[2].position}; // Right eye
+  
+  // Check existence, score != 0
+  if (nose.sc == 0) rot = 0;
+  else if ((left.sc == 0) && (right.sc == 0)) rot = 0;
+  else if (left.sc == 0) rot = -60;  // Less than -60
+  else if (right.sc == 0) rot = 60;  // More than 60
+  else {
+    // Right eye is left on screen, thus: right - nose - left
+    // Align the rotation
+    const rad = Math.atan2((right.pos.y - left.pos.y), (right.pos.x - left.pos.x));
+    
+    // Positive is the baseline distance value.
+    // const l = rotatePoint(nose.pos.x, nose.pos.y, left.pos.x, left.pos.y, rad);
+    // const r = rotatePoint(nose.pos.x, nose.pos.y, right.pos.x, right.pos.y, rad);
+    
+    // To preview the result
+    // pose.keypoints[1].position = r;
+    // pose.keypoints[2].position = l;
+    
+    // Not using rotation aligment, coz x is still the same on pitch movement.
+    // But cant compensate roll.
+    const l = left.pos;
+    const r = right.pos;
+    
+    const distL = nose.pos.x - l.x;
+    const distR = r.x - nose.pos.x;
+    // console.log(distL, distR, distL*100/(distR+distL));
+    
+    if (distL >= distR) {
+      ratio = distL*100 / (distR+distL);
+      dir = 1;
+    } else {
+      ratio = distR*100 / (distR+distL);
+      dir = -1;
+    }
+    
+    if (ratio >= 105) ratio = 100;  // More than that, it's unreliable
+    
+    // Formula based on regression
+    // rot = dir * -0.00158 * pow((ratio - 114.42),2) + 360.8 // Quadratic
+    rot = dir * coef * (ratio - 50);  // Linear
+    // console.log(rot);
+  }
+  
+  pose.rot = rot;
+}
+
+/**
+ * Rotate a point (x,y) with angle (rad) and origin (cx,cy).
+ */
+function rotatePoint(cx, cy, x, y, rad) {
+  // console.log(cx, cy, x, y);
+  let pt = {x:0, y:0};
+  var cos = Math.cos(rad),
+      sin = Math.sin(rad);
+  pt.x = (cos * (x - cx)) + (sin * (y - cy)) + cx;
+  pt.y = (cos * (y - cy)) - (sin * (x - cx)) + cy;
+  return pt;
 }
 
 /**

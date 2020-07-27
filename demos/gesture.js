@@ -88,7 +88,7 @@ const guiState = {
     minPartConfidence: 0.5,
   },
   multiPoseDetection: {
-    maxPoseDetections: 5,
+    maxPoseDetections: 10,
     minPoseConfidence: 0.15,
     minPartConfidence: 0.1,
     nmsRadius: 30.0,
@@ -398,7 +398,7 @@ function detectPoseInRealTime(video, net) {
         minPartConfidence = +guiState.singlePoseDetection.minPartConfidence;
         // filter out poses (previously, it was only hidden)
         if (pose.score >= minPoseConfidence) {
-          preprocPose(pose, minPartConfidence, remove = [11, 12, 13, 14, 15, 16]);
+          preprocPose(pose, minPartConfidence, [3, 4, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
           poses.push(pose);
         }
         // poses = poses.concat(pose);
@@ -417,7 +417,7 @@ function detectPoseInRealTime(video, net) {
         all_poses.forEach(pose => {
           // filter out poses (previously, it was only hidden)
           if (pose.score >= minPoseConfidence) {
-            preprocPose(pose, minPartConfidence, [11, 12, 13, 14, 15, 16]);
+            preprocPose(pose, minPartConfidence, [3, 4, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
             poses.push(pose);
           }
         });
@@ -439,21 +439,7 @@ function detectPoseInRealTime(video, net) {
     // console.time("Matching");
     matchPoses(gestures, poses);
     // console.timeEnd("Matching");
-    // console.log(gestures);
-
-    // Loop through the poses and draw the resulting skeleton and keypoints
-    // poses.forEach(({center, score, keypoints}) => {
-      // if (guiState.output.showPoints) {
-        // drawKeypoints(keypoints, minPartConfidence, ctx);
-      // }
-      // if (guiState.output.showSkeleton) {
-        // drawSkeleton(keypoints, minPartConfidence, ctx);
-      // }
-      // if (guiState.output.showBoundingBox) {
-        // drawBoundingBox(keypoints, ctx);
-      // }
-      // drawPoint(ctx, center.y, center.x, 3, 'yellow');
-    // });
+    console.log(gestures);
     
     // Loop through gestures, and draw the latest pose (head)
     gestures.forEach(g => {
@@ -468,6 +454,8 @@ function detectPoseInRealTime(video, net) {
         drawBoundingBox(p.keypoints, ctx);
       }
       drawPoint(ctx, p.center.y, p.center.x, 3, 'yellow');
+      
+      // Getting rotation: p.rot
     });
     
     /* General flow:
@@ -481,7 +469,7 @@ function detectPoseInRealTime(video, net) {
       8. compare to threshold
       9. Append if fulfill, create new if not (ID = random)
       10. FIFO, remove head if overflow
-      11 Final: Multiple gestures from different IDs
+      11. Final: Multiple gestures from different IDs
     */
 
     // End monitoring code for frames per second

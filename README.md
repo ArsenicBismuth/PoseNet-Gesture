@@ -13,6 +13,8 @@
 	- `pose`= Single-person inference result, contains keypoints.
 	- `poses`= Multi-person inference result, contains array of `pose`.
 	- `gestures`= Final preprocessing result, contains poses from multiple frames, tracked.
+7. In switchable GPU setup, set the browser to use dedicated GPU before running for maximal performance.
+8. Includes head yaw estimation, obtained statistically. Modify `coef` variable inside `demo_utils.js` to adjust for nose pointy-ness.
 
 # Pose Detection in the Browser: PoseNet Model
 
