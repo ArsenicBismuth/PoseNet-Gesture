@@ -24,6 +24,7 @@ import {drawBoundingBox, drawPoint, drawKeypoints, drawSkeleton, isMobile, toggl
 const videoWidth = 600;
 const videoHeight = 500;
 const stats = new Stats();
+// const fpsLimit = 3; // 0 for unlimited
 
 /**
  * Loads a the camera to be used in the demo
@@ -98,6 +99,7 @@ const guiState = {
     showSkeleton: true,
     showPoints: true,
     showBoundingBox: false,
+    fpsLimit: 5,  // 0 for unlimited
   },
   net: null,
 };
@@ -253,6 +255,7 @@ function setupGui(cameras, net) {
   output.add(guiState.output, 'showSkeleton');
   output.add(guiState.output, 'showPoints');
   output.add(guiState.output, 'showBoundingBox');
+  output.add(guiState.output, 'fpsLimit').min(0).max(20);
   output.open();
 
 
@@ -302,6 +305,8 @@ function detectPoseInRealTime(video, net) {
   canvas.height = videoHeight;
   
   let gestures = [];
+  let frameTime;
+  let prevTime = 0;
 
   async function poseDetectionFrame() {
     if (guiState.changeToArchitecture) {
@@ -398,7 +403,7 @@ function detectPoseInRealTime(video, net) {
         minPartConfidence = +guiState.singlePoseDetection.minPartConfidence;
         // filter out poses (previously, it was only hidden)
         if (pose.score >= minPoseConfidence) {
-          preprocPose(pose, minPartConfidence, [3, 4, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
+          preprocPose(pose, minPartConfidence, [7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
           poses.push(pose);
         }
         // poses = poses.concat(pose);
@@ -417,7 +422,7 @@ function detectPoseInRealTime(video, net) {
         all_poses.forEach(pose => {
           // filter out poses (previously, it was only hidden)
           if (pose.score >= minPoseConfidence) {
-            preprocPose(pose, minPartConfidence, [3, 4, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
+            preprocPose(pose, minPartConfidence, [7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
             poses.push(pose);
           }
         });
@@ -471,14 +476,27 @@ function detectPoseInRealTime(video, net) {
       10. FIFO, remove head if overflow
       11. Final: Multiple gestures from different IDs
     */
+    
+    // Frame limiter, for consistent speed
+    let fpsLimit = guiState.output.fpsLimit;
+    frameTime = (performance || Date).now() - prevTime;
+    if (fpsLimit > 0) await sleep(Math.max(1000/fpsLimit - (frameTime), 0));
 
     // End monitoring code for frames per second
     stats.end();
+    prevTime = (performance || Date).now();
 
     requestAnimationFrame(poseDetectionFrame);
   }
 
   poseDetectionFrame();
+}
+
+/**
+ * Sleep function
+ */
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 /**
